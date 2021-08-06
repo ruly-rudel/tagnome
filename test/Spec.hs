@@ -6,61 +6,56 @@ main :: IO ()
 main =
     void $ runTestTT $ TestList
       [
-         "00_00_listFilesRecursive" ~: (do
+         "00_00_listFilesRecursive1" ~: (do
           e <- listFilesRecursive1 "./tv/00/notexist"
-          assertEqual "00_00 dir not exists." [] e)
+          assertEqual "00_00 dir not exists." Nothing e)
 
-        ,"00_01_listFilesRecursive" ~: (do
+        ,"00_01_listFilesRecursive1" ~: (do
           e <- listFilesRecursive1 "./tv/00/file1"
-          assertEqual "00_01 not a dir." ["./tv/00/file1"] e)
+          assertEqual "00_01 not a dir." (Just ["./tv/00/file1"]) e)
 
-        ,"00_02_listFilesRecursive" ~: (do
+        ,"00_02_listFilesRecursive1" ~: (do
           e <- listFilesRecursive1 "./tv/00"
-          assertEqual "00_02 normal 01." ["./tv/00/dir1/file3", "./tv/00/dir1/file4", "./tv/00/file1", "./tv/00/file2"] e)
+          assertEqual "00_02 normal 01." (Just ["./tv/00/dir1/file3", "./tv/00/dir1/file4", "./tv/00/file1", "./tv/00/file2"]) e)
           
-        ,"00_03_listFilesRecursive" ~: (do
+        ,"00_03_listFilesRecursive1" ~: (do
           e <- listFilesRecursive1 "./tv/00/dir1"
-          assertEqual "00_03 normal 02." ["./tv/00/dir1/file3", "./tv/00/dir1/file4"] e)
+          assertEqual "00_03 normal 02." (Just ["./tv/00/dir1/file3", "./tv/00/dir1/file4"]) e)
 
-        ,"00_04_listFilesRecursive" ~: (do
+        ,"00_04_listFilesRecursive1" ~: (do
           e <- listFilesRecursive1 "./tv/00/dir2/dir3"
-          assertEqual "00_04 empty dir." [] e)
+          assertEqual "00_04 empty dir." (Just []) e)
           
-        ,"00_05_listFilesRecursive" ~: (do
-          e <- listFilesRecursive1 "./tv/00/dir2"
-          assertEqual "00_05 only single dir." [] e)
-        {-
-         "00_00_listFilesRecursive" ~: (do
-          e <- listFilesRecursive1 "./tv/00/notexist"
-          assertEqual "00_00 dir not exists." e Nothing)
-
-        ,"00_01_listFilesRecursive" ~: (do
-          e <- listFilesRecursive1 "./tv/00/file1"
-          assertEqual "00_01 not a dir." e $ Just ["./tv/00/file1"])
-
-        ,"00_02_listFilesRecursive" ~: (do
-          e <- listFilesRecursive1 "./tv/00/"
-          assertEqual "00_02 normal 01." e (Just ["./tv/00/dir1", "./tv/00/dir2", "./tv/00/file1", "./tv/00/file2"]))
-          
-        ,"00_03_listFilesRecursive" ~: (do
-          e <- listFilesRecursive1 "./tv/00/dir1/"
-          assertEqual "00_03 normal 02." e (Just ["./tv/00/dir1/file3", "./tv/00/dir1/file4"]))
-
-        ,"00_04_listFilesRecursive" ~: (do
-          e <- listFilesRecursive1 "./tv/00/dir2/dir3"
-          assertEqual "00_04 empty dir." e (Just ["./tv/00/dir2/dir3"]))
-          
-        ,"00_05_listFilesRecursive" ~: (do
+        ,"00_05_listFilesRecursive1" ~: (do
           e <- listFilesRecursive1 "./tv/00/dir2/"
-          assertEqual "00_05 only single dir." e (Just ["./tv/00/dir2/dir3"]))
-        -}
+          assertEqual "00_05 only single dir." (Just []) e)
+
+        ,"00_06_listFilesRecursive" ~: (do
+          e <- listFilesRecursive ["./tv/00/notexist"]
+          assertEqual "00_06 dir not exists." Nothing e)
+
+        ,"00_07_listFilesRecursive" ~: (do
+          e <- listFilesRecursive ["./tv/00/file1"]
+          assertEqual "00_07 not a dir." (Just ["./tv/00/file1"]) e)
+
+        ,"00_08_listFilesRecursive" ~: (do
+          e <- listFilesRecursive ["./tv/00"]
+          assertEqual "00_08 normal 01." (Just ["./tv/00/dir1/file3", "./tv/00/dir1/file4", "./tv/00/file1", "./tv/00/file2"]) e)
           
-        {-
-        TestLabel "00_00_listFilesRecursive" test00_00,
-        TestLabel "00_01_listFilesRecursive" test00_01,
-        TestLabel "00_02_listFilesRecursive" (TestCase (do
-          e <- listFilesRecursive "./tv/00"
-          assertEqual "00_02 normal 01." e (Just ["file2", "file1", "dir2", "dir1"])))
-        -}
+        ,"00_09_listFilesRecursive" ~: (do
+          e <- listFilesRecursive ["./tv/00/dir1"]
+          assertEqual "00_09 normal 02." (Just ["./tv/00/dir1/file3", "./tv/00/dir1/file4"]) e)
+
+        ,"00_10_listFilesRecursive" ~: (do
+          e <- listFilesRecursive ["./tv/00/dir2/dir3"]
+          assertEqual "00_10 empty dir." (Just []) e)
+          
+        ,"00_11_listFilesRecursive" ~: (do
+          e <- listFilesRecursive ["./tv/00/dir2/"]
+          assertEqual "00_11 only single dir." (Just []) e)
+          
+        ,"00_12_listFilesRecursive" ~: (do
+          e <- listFilesRecursive ["./tv/00/dir1", "./tv/00/dir2/"]
+          assertEqual "00_12 multi delectories search." (Just ["./tv/00/dir1/file3", "./tv/00/dir1/file4"]) e)
+
       ]
-    
