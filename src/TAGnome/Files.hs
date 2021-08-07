@@ -1,32 +1,43 @@
 module TAGnome.Files
   (
       listFilesRecursive
-    , listFilesRecursive1
   ) where
 
 import System.Directory
 import Data.List
-import Control.Monad
+import Control.Monad.IO.Class
+import UnliftIO
 
 
-listFilesRecursive :: [FilePath] -> IO (Maybe [FilePath])
+{-
+listFilesRecursive :: MonadIO m => [FilePath] -> m [FilePath]
+listFilesRecursive [] = return []
+listFilesRecursive (x:xs) = do
+  e <- (liftIO . doesDirectoryExist) x
+  if e then do
+    files <- (liftIO . listDirectory) x
+    rx  <- listFilesRecursive (sort (map ((x ++ "/") ++) files))
+    rxs <- listFilesRecursive xs
+    return $ rx ++ rxs
+  else do
+    rxs <- listFilesRecursive xs
+    return $ x : rxs
+-}
+
+listFilesRecursive :: MonadIO m => [FilePath] -> m [FilePath]
+listFilesRecursive = fmap concat . traverse listFilesRecursive1
+{-
 listFilesRecursive lst = do
     r <- traverse listFilesRecursive1 lst
-    let rr = sequence r in
-      return $ case rr of
-        Nothing -> Nothing
-        Just a  -> Just $ concat a
+    return $ concat r
+-}
 
 
-listFilesRecursive1 :: FilePath -> IO (Maybe [FilePath])
+listFilesRecursive1 :: MonadIO m => FilePath -> m [FilePath]
 listFilesRecursive1 path = do
-  e <- doesDirectoryExist path
+  e <- (liftIO . doesDirectoryExist) path
   if e then do 
-    list <- listDirectory path
+    list <- (liftIO . listDirectory) path
     listFilesRecursive (sort (map ((path ++ "/") ++) list))
-  else do
-    f <- doesFileExist path
-    if f then 
-      return $ Just [path]
-    else
-      return Nothing
+  else return [path]
+

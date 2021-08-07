@@ -2,7 +2,7 @@ STACK = stack
 TARGET = TAGnome
 
 
-.PHONY:	build run test setup clean distclean
+.PHONY:	build run test config clean distclean
 
 build:
 	$(STACK) build
@@ -16,7 +16,7 @@ test:
 test-debug:
 	$(STACK) test --ghc-options="-g" --no-strip
 
-setup:	build hie.yaml stack-hls.yaml
+config:	build hie.yaml stack-hls.yaml
 
 
 clean:
