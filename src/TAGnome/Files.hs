@@ -3,19 +3,18 @@ module TAGnome.Files
       listFilesRecursive
   ) where
 
-import System.Directory
 import Data.List
 import Control.Monad.IO.Class
-import UnliftIO
+import UnliftIO.Directory
 
 
 {-
 listFilesRecursive :: MonadIO m => [FilePath] -> m [FilePath]
 listFilesRecursive [] = return []
 listFilesRecursive (x:xs) = do
-  e <- (liftIO . doesDirectoryExist) x
+  e <- doesDirectoryExist x
   if e then do
-    files <- (liftIO . listDirectory) x
+    files <- listDirectory x
     rx  <- listFilesRecursive (sort (map ((x ++ "/") ++) files))
     rxs <- listFilesRecursive xs
     return $ rx ++ rxs
@@ -35,9 +34,9 @@ listFilesRecursive lst = do
 
 listFilesRecursive1 :: MonadIO m => FilePath -> m [FilePath]
 listFilesRecursive1 path = do
-  e <- (liftIO . doesDirectoryExist) path
+  e <- doesDirectoryExist path
   if e then do 
-    list <- (liftIO . listDirectory) path
+    list <- listDirectory path
     listFilesRecursive (sort (map ((path ++ "/") ++) list))
   else return [path]
 
