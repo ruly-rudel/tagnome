@@ -60,4 +60,10 @@ main =
           e <- listFilesRecursive ["./tv/00/dir1", "./tv/00/dir2/"]
           assertEqual "00_12 multi delectories search." ["./tv/00/dir1/file3", "./tv/00/dir1/file4"] e)
 
+
+        ,"01_00_getFlacMetadataFromFile" ~: (do
+          e <- getFlacMetadataFromFile "./tv/01/tone2.flac"
+          assertEqual "01_00 flac matadata retrival." [MetaStr "MAGIC" "fLaC"] e)
+
+
       ]
