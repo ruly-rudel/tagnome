@@ -1,4 +1,3 @@
-{-# LANGUAGE InstanceSigs #-}
 {-# LANGUAGE TupleSections #-}
 module TAGnome.Files
   (
@@ -61,59 +60,53 @@ data MetaData = MetaInt String Int | MetaStr String String deriving (Eq, Show)
 
 data FlacStream = FlacStream B.ByteString Int [MetaData]
 
-newtype FP a = FP { runFP :: FlacStream -> (FlacStream, a)}
+newtype FP a = FP { runFP :: FlacStream -> (a, FlacStream)}
 
 
 instance Functor FP where
-  fmap :: (a -> b) -> FP a -> FP b
   fmap f a = FP $ \s -> 
-    let (s', a') = runFP a s
-      in (s', f a')
+    let (a', s') = runFP a s
+      in (f a', s')
 
 instance Applicative FP where
-  pure :: a -> FP a
-  pure a = FP (, a)
-
-  (<*>) :: FP (a -> b) -> FP a -> FP b 
+  pure a = FP (a, )
   (<*>) = undefined 
 
 instance Monad FP where
-  (>>=) :: FP a -> (a -> FP b) -> FP b
   x >>= y = FP $ \s ->
-    let (s', a) = runFP x s
+    let (a, s') = runFP x s
       in runFP (y a) s'
 
-  (>>) :: FP a -> FP b -> FP b
   x >> y = FP $ \s ->
-    let (s', _) = runFP x s
+    let (_, s') = runFP x s
       in runFP y s'
 
 getMeta :: FP [MetaData]
 getMeta =  FP $ \fs -> case fs of
-  FlacStream bs pos meta -> (fs, meta)
+  FlacStream bs pos meta -> (meta, fs)
 
 parseNext :: Int -> FP ()
-parseNext size = FP $ \(FlacStream bs pos meta) -> (FlacStream bs (pos + size) meta, ())
+parseNext size = FP $ \(FlacStream bs pos meta) -> ((), FlacStream bs (pos + size) meta)
 
 parseStr :: String -> Int -> FP String
 parseStr key size  = FP $ \(FlacStream bs pos meta) ->
   let str = getStrByte size $ B.drop pos bs in
-    (FlacStream bs (pos + size) (meta ++ [MetaStr key str]), str)
+    (str, FlacStream bs (pos + size) (meta ++ [MetaStr key str]))
 
 parseNum :: String -> Int -> FP Int
 parseNum key size  = FP $ \(FlacStream bs pos meta) ->
   let num = getNumByte size $ B.drop pos bs in
-    (FlacStream bs (pos + size) (meta ++ [MetaInt key num]), num)
+    (num, FlacStream bs (pos + size) (meta ++ [MetaInt key num]))
 
 parseNumLE :: String -> Int -> FP Int
 parseNumLE key size  = FP $ \(FlacStream bs pos meta) ->
   let num = getNumByteLE size $ B.drop pos bs in
-    (FlacStream bs (pos + size) (meta ++ [MetaInt key num]), num)
+    (num, FlacStream bs (pos + size) (meta ++ [MetaInt key num]))
 
 getFlacMetadataFromFile ::  FilePath -> IO [MetaData]
 getFlacMetadataFromFile path = do
   bs <- mmapFileByteString path Nothing
-  return $ snd $ runFP ( do
+  return $ fst $ runFP ( do
         parseStr   "MAGIC" 4
         parseNum   "BLOCK_TYPE.0" 1
         len0 <- parseNum   "Length" 3
