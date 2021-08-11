@@ -1,3 +1,5 @@
+{-# LANGUAGE InstanceSigs #-}
+{-# LANGUAGE TupleSections #-}
 module TAGnome.Files
   (
       listFilesRecursive
@@ -10,10 +12,9 @@ import Control.Monad.IO.Class
 import UnliftIO.Directory
 import qualified Data.ByteString as B
 import System.IO.MMap
-import Data.Word
 import Data.Char
-import GHC.Generics (Meta(MetaSel))
-import Data.ByteString (ByteString)
+import Control.Applicative
+import Control.Monad
 
 {-
 listFilesRecursive :: MonadIO m => [FilePath] -> m [FilePath]
@@ -58,21 +59,34 @@ getNumByteLE n bs = foldr (\x y -> fromEnum x + y * 256) 0 $ B.unpack $ B.take n
 
 data MetaData = MetaInt String Int | MetaStr String String deriving (Eq, Show)
 
-data FlacStream = FlacStream ByteString Int [MetaData]
+data FlacStream = FlacStream B.ByteString Int [MetaData]
 
 newtype FP a = FP { runFP :: FlacStream -> (FlacStream, a)}
 
-(-:-) :: FP a -> (a -> FP b) -> FP b
-x -:- y = FP $ \s ->
-  let (s', a) = runFP x s
-    in runFP (y a) s'
-infixl -:-
 
-(-::-) :: FP a -> FP b -> FP b
-x -::- y = FP $ \s ->
-  let (s', _) = runFP x s
-    in runFP y s'
-infixl -::-
+instance Functor FP where
+  fmap :: (a -> b) -> FP a -> FP b
+  fmap f a = FP $ \s -> 
+    let (s', a') = runFP a s
+      in (s', f a')
+
+instance Applicative FP where
+  pure :: a -> FP a
+  pure a = FP (, a)
+
+  (<*>) :: FP (a -> b) -> FP a -> FP b 
+  (<*>) = undefined 
+
+instance Monad FP where
+  (>>=) :: FP a -> (a -> FP b) -> FP b
+  x >>= y = FP $ \s ->
+    let (s', a) = runFP x s
+      in runFP (y a) s'
+
+  (>>) :: FP a -> FP b -> FP b
+  x >> y = FP $ \s ->
+    let (s', _) = runFP x s
+      in runFP y s'
 
 getMeta :: FP [MetaData]
 getMeta =  FP $ \fs -> case fs of
@@ -99,39 +113,16 @@ parseNumLE key size  = FP $ \(FlacStream bs pos meta) ->
 getFlacMetadataFromFile ::  FilePath -> IO [MetaData]
 getFlacMetadataFromFile path = do
   bs <- mmapFileByteString path Nothing
-  return $ snd $ runFP (
-         parseStr   "MAGIC" 4
-    -::- parseNum   "BLOCK_TYPE.0" 1
-    -::- parseNum   "Length" 3
-    -:-  parseNext
-    -::- parseNum   "BLOCK_TYPE.1" 1
-    -::- parseNum   "Length" 3
-    -::- parseNumLE "vender_length" 4
-    -:-  parseStr   "vender_string"
-    -::- parseNumLE "user_comment_list_length" 4
-    -::- parseNumLE  "comment#00 length" 4
-    -:-  parseStr    "comment#00"
-    -::- parseNumLE  "comment#01 length" 4
-    -:-  parseStr    "comment#01"
-    -::- parseNumLE  "comment#02 length" 4
-    -:-  parseStr    "comment#02"
-    -::- parseNumLE  "comment#03 length" 4
-    -:-  parseStr    "comment#03"
-    -::- parseNumLE  "comment#04 length" 4
-    -:-  parseStr    "comment#04"
-    -::- parseNumLE  "comment#05 length" 4
-    -:-  parseStr    "comment#05"
-    -::- parseNumLE  "comment#06 length" 4
-    -:-  parseStr    "comment#06"
-    -::- parseNumLE  "comment#07 length" 4
-    -:-  parseStr    "comment#07"
-    -::- parseNumLE  "comment#08 length" 4
-    -:-  parseStr    "comment#08"
-    -::- parseNumLE  "comment#09 length" 4
-    -:-  parseStr    "comment#09"
-    -::- parseNumLE  "comment#10 length" 4
-    -:-  parseStr    "comment#10"
-    -::- parseNumLE  "comment#11 length" 4
-    -:-  parseStr    "comment#11"
-    -::- getMeta
+  return $ snd $ runFP ( do
+        parseStr   "MAGIC" 4
+        parseNum   "BLOCK_TYPE.0" 1
+        len0 <- parseNum   "Length" 3
+        parseNext len0
+        parseNum   "BLOCK_TYPE.1" 1
+        parseNum   "Length" 3
+        vlen <- parseNumLE "vender_length" 4
+        parseStr   "vender_string" vlen
+        clen <- parseNumLE "user_comment_list_length" 4
+        forM_ [1..clen] $ \x -> parseNumLE ("comment len #" ++ show x) 4 >>= parseStr ("comment#" ++ show x)
+        getMeta
     ) (FlacStream bs 0 [])
