@@ -21,29 +21,8 @@ import Data.String.Conversions
 import qualified Data.Text as T
 
 
-{-
-listFilesRecursive :: MonadIO m => [FilePath] -> m [FilePath]
-listFilesRecursive [] = return []
-listFilesRecursive (x:xs) = do
-  e <- doesDirectoryExist x
-  if e then do
-    files <- listDirectory x
-    rx  <- listFilesRecursive (sort (map ((x ++ "/") ++) files))
-    rxs <- listFilesRecursive xs
-    return $ rx ++ rxs
-  else do
-    rxs <- listFilesRecursive xs
-    return $ x : rxs
--}
-
 listFilesRecursive :: MonadIO m => [FilePath] -> m [FilePath]
 listFilesRecursive = fmap concat . traverse listFilesRecursive1
-{-
-listFilesRecursive lst = do
-    r <- traverse listFilesRecursive1 lst
-    return $ concat r
--}
-
 
 listFilesRecursive1 :: MonadIO m => FilePath -> m [FilePath]
 listFilesRecursive1 path = do
@@ -64,20 +43,18 @@ newtype FP a = FP { runFP :: FlacStream -> (a, FlacStream)}
 getStrByte :: Int -> C.ByteString -> T.Text
 getStrByte n bs = convertString $ C.take n bs
 
-getMetaStrByte :: Int -> C.ByteString  -> MetaData
+getMetaStrByte :: Int -> C.ByteString  -> (String, T.Text)
 getMetaStrByte n bs =
   let str = C.take n bs
-
       key = convertString $ C.takeWhile ('='/=) str
       val = convertString $ C.tail $ C.dropWhile ('='/=) str in
-        MetaStr key val
+        (key, val)
 
 getNumByte :: Int -> C.ByteString -> Int
 getNumByte n bs = foldl (\x y -> x * 256 + fromEnum y) 0 $ C.unpack $ C.take n bs
 
 getNumByteLE :: Int -> C.ByteString -> Int
 getNumByteLE n bs = foldr (\x y -> fromEnum x + y * 256) 0 $ C.unpack $ C.take n bs
-
 
 instance Functor FP where
   fmap f a = FP $ \s ->
@@ -110,37 +87,26 @@ parseStr size key  = FP $ \(FlacStream bs pos meta) ->
     error "field size exceeds 1kbyte."
   else
     let str = getStrByte size $ B.drop pos bs in
-      case key of
-        Just k  -> (str, FlacStream bs (pos + size) (meta ++ [MetaStr k str]))
-        Nothing -> (str, FlacStream bs (pos + size) meta)
+      (str, FlacStream bs (pos + size) $ case key of Just k -> meta ++ [MetaStr k str]; Nothing -> meta)
 
 parseMetaStr :: Int -> FP T.Text
 parseMetaStr size = FP $ \(FlacStream bs pos meta) ->
   if size > 1024 then
     error "field size exceeds 1kbyte."
   else
-    let str = getMetaStrByte size $ B.drop pos bs in
-      case str of
-        MetaStr key val -> (val, FlacStream bs (pos + size) (meta ++ [str]))
-        MetaInt _ _     -> ("",  FlacStream bs pos meta)
+    let (key, val) = getMetaStrByte size $ B.drop pos bs in
+      (val, FlacStream bs (pos + size) (meta ++ [MetaStr key val]))
 
-
-
-
-parseNum :: Int -> Maybe String -> FP Int
-parseNum size key  = FP $ \(FlacStream bs pos meta) ->
-  let num = getNumByte size $ C.drop pos bs in
-    case key of
-      Just k  -> (num, FlacStream bs (pos + size) (meta ++ [MetaInt k num]))
-      Nothing -> (num, FlacStream bs (pos + size)  meta)
+parseNum   :: Int -> Maybe String -> FP Int
+parseNum   = updateMetaNum getNumByte
 
 parseNumLE :: Int -> Maybe String -> FP Int
-parseNumLE size key  = FP $ \(FlacStream bs pos meta) ->
-  let num = getNumByteLE size $ C.drop pos bs in
-    case key of
-      Just k  -> (num, FlacStream bs (pos + size) (meta ++ [MetaInt k num]))
-      Nothing -> (num, FlacStream bs (pos + size)  meta)
+parseNumLE = updateMetaNum getNumByteLE
 
+updateMetaNum :: (Int -> C.ByteString -> Int) -> Int -> Maybe String -> FP Int
+updateMetaNum fn size key = FP $ \(FlacStream bs pos meta) ->
+  let num = fn size $ C.drop pos bs in
+    (num, FlacStream bs (pos + size) $ case key of Just k -> meta ++ [MetaInt k num]; Nothing -> meta )
 
 searchFlacVorbisComment :: FP Bool
 searchFlacVorbisComment = do
@@ -154,8 +120,6 @@ searchFlacVorbisComment = do
     else do
       parseNext block_length
       searchFlacVorbisComment
-
-
 
 getFlacMetadataFromFile ::  FilePath -> IO [MetaData]
 getFlacMetadataFromFile path = do

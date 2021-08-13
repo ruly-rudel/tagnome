@@ -84,20 +84,20 @@
 6. ファイル名からファイルのメタデータを抽出してフルパスと一緒に返す機能
     - 手順は以下とする。STREAM, METADATA_BLOCK_HEADERはbig endian、VORBIS_COMMENTのMETADATA_BLOCK_DATAはlittle endianでパースする。
         1. MAGICを読み、key "MAGIC"としてalistに格納する
-        2. 最初のMETADATA_BLOCK_HEADERのBLOCK_TYPEを読み、STREAMINFO(=0)であることを確認する
+        2. 最初のMETADATA_BLOCK_HEADERのBLOCK_TYPEを読み、STREAMINFO(=0)であることを確認する(未実装)
         3. ここでlast-metadata-block flagが立っていたらメタデータ抽出は終了する
         4. METADATA_BLOCK_HEADERのBLOCK_TYPEがVORBIS_COMMENT(=4)になるか、last-metadata-block flagが立つまでMETADATA_BLOCK_HEADERを読みLengthの長さだけMETADATA_BLOCK_DATAを読み飛ばす
         5. METADATA_BLOCK_HEADERのBLOCK_TYPEがVORBIS_COMMENTでなく、かつlast-metadata-blockが立っていた場合はメタデータ抽出は終了する
         6. vender_length、vender_string、user_comment_list_lengthを取得する
         7. user_comment_list_lengthだけ、Lengthとuser_commentを取得し、user_comment文字列を「=」で二分割し、keyとvalueにしてalistに格納する
-        8. framing_bitを読み、1がセットされていることを確認する
+        8. framing_bitを読み、1がセットされていることを確認する(未実装)
     - すべてのVORBIS_COMMENTのフィールドを抽出する
     - 以下の場合はエラーとし、フルパスとエラー要因を共に表示してコマンドの実行を終了する
         - MAGICが"fLaC"でない場合
-        - ファイルポインタがファイルサイズを越した場合
-        - 最初のメタデータがSTREAMINFOでない場合
-        - メタデータブロックをパース中に、ファイルポインタがブロックサイズを越した場合
-        - ブロックタイプがinvalidの場合
+        - ファイルポインタがファイルサイズを越した場合(未実装)
+        - 最初のメタデータがSTREAMINFOでない場合(未実装)
+        - メタデータブロックをパース中に、ファイルポインタがブロックサイズを越した場合(未実装)
+        - ブロックタイプがinvalidの場合(未実装)
         - 一つのstringが1kByteを超えた場合(暫定)
 
 7. 一つのルールと一セットのメタデータを入力にして、新しい一セットのメタデータとメタデータに変更あり/なしを出力する機能
