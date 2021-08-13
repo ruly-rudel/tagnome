@@ -25,6 +25,7 @@ dependencies:
 - unliftio
 - bytestring
 - mmap
+- string-conversions
 
 library:
   source-dirs: src

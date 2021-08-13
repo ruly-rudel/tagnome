@@ -10,10 +10,13 @@ import Data.List
 import Control.Monad.IO.Class
 import UnliftIO.Directory
 import qualified Data.ByteString as B
+import qualified Data.ByteString.Char8 as C
 import System.IO.MMap
 import Data.Char
 import Control.Applicative
 import Control.Monad
+import Data.String.Conversions
+
 
 {-
 listFilesRecursive :: MonadIO m => [FilePath] -> m [FilePath]
@@ -47,20 +50,30 @@ listFilesRecursive1 path = do
     listFilesRecursive (sort (map ((path ++ "/") ++) list))
   else return [path]
 
-getStrByte :: Int -> B.ByteString -> String
-getStrByte n bs = map (chr . fromEnum) $ B.unpack $ B.take n bs
 
-getNumByte :: Int -> B.ByteString -> Int
-getNumByte n bs = foldl (\x y -> x * 256 + fromEnum y) 0 $ B.unpack $ B.take n bs
-
-getNumByteLE :: Int -> B.ByteString -> Int
-getNumByteLE n bs = foldr (\x y -> fromEnum x + y * 256) 0 $ B.unpack $ B.take n bs
 
 data MetaData = MetaInt String Int | MetaStr String String deriving (Eq, Show)
 
-data FlacStream = FlacStream B.ByteString Int [MetaData]
+data FlacStream = FlacStream C.ByteString Int [MetaData]
 
 newtype FP a = FP { runFP :: FlacStream -> (a, FlacStream)}
+
+getStrByte :: Int -> C.ByteString -> String
+getStrByte n bs = map (chr . fromEnum) $ C.unpack $ C.take n bs
+
+getMetaStrByte :: Int -> C.ByteString  -> MetaData
+getMetaStrByte n bs =
+  let str = C.take n bs
+
+      key = map (chr .fromEnum) $ C.unpack $ C.takeWhile ('='/=) str
+      val = map (chr .fromEnum) $ C.unpack $ C.tail $ C.dropWhile ('='/=) str in
+        MetaStr key val
+
+getNumByte :: Int -> C.ByteString -> Int
+getNumByte n bs = foldl (\x y -> x * 256 + fromEnum y) 0 $ C.unpack $ C.take n bs
+
+getNumByteLE :: Int -> C.ByteString -> Int
+getNumByteLE n bs = foldr (\x y -> fromEnum x + y * 256) 0 $ C.unpack $ C.take n bs
 
 
 instance Functor FP where
@@ -85,76 +98,79 @@ getMeta :: FP [MetaData]
 getMeta =  FP $ \fs -> case fs of
   FlacStream bs pos meta -> (meta, fs)
 
-getPos :: FP Int
-getPos =  FP $ \fs -> case fs of
-  FlacStream bs pos meta -> (pos, fs)
+parseNext :: Int -> FP Int
+parseNext size = FP $ \(FlacStream bs pos meta) -> (size, FlacStream bs (pos + size) meta)
 
-
-setPos :: Int -> FP Int
-setPos pos =  FP $ \fs -> case fs of
-  FlacStream bs _ meta -> (pos, fs)
-
-
-parseNext :: Int -> FP ()
-parseNext size = FP $ \(FlacStream bs pos meta) -> ((), FlacStream bs (pos + size) meta)
-
-parseStr :: String -> Int -> FP String
-parseStr key size  = FP $ \(FlacStream bs pos meta) ->
+parseStr :: Int -> Maybe String -> FP String
+parseStr size key  = FP $ \(FlacStream bs pos meta) ->
   if size > 1024 then
     error "field size exceeds 1kbyte."
   else
     let str = getStrByte size $ B.drop pos bs in
-      (str, FlacStream bs (pos + size) (meta ++ [MetaStr key str]))
+      case key of
+        Just k  -> (str, FlacStream bs (pos + size) (meta ++ [MetaStr k str]))
+        Nothing -> (str, FlacStream bs (pos + size) meta)
 
-parseNum :: String -> Int -> FP Int
-parseNum key size  = FP $ \(FlacStream bs pos meta) ->
-  let num = getNumByte size $ B.drop pos bs in
-    (num, FlacStream bs (pos + size) (meta ++ [MetaInt key num]))
+parseMetaStr :: Int -> FP String
+parseMetaStr size = FP $ \(FlacStream bs pos meta) ->
+  if size > 1024 then
+    error "field size exceeds 1kbyte."
+  else
+    let str = getMetaStrByte size $ B.drop pos bs in
+      case str of
+        MetaStr key val -> (val, FlacStream bs (pos + size) (meta ++ [str]))
+        MetaInt _ _     -> ([],  FlacStream bs pos meta)
 
-parseNumLE :: String -> Int -> FP Int
-parseNumLE key size  = FP $ \(FlacStream bs pos meta) ->
-  let num = getNumByteLE size $ B.drop pos bs in
-    (num, FlacStream bs (pos + size) (meta ++ [MetaInt key num]))
 
 
-searchFlacVorbisComment :: B.ByteString -> Int -> FP Int
-searchFlacVorbisComment bs pos_b = do
-  block_type   <- parseNum "BLOCK_TYPE" 1
-  block_length <- parseNum "BLOCK_LENGTH" 3
+
+parseNum :: Int -> Maybe String -> FP Int
+parseNum size key  = FP $ \(FlacStream bs pos meta) ->
+  let num = getNumByte size $ C.drop pos bs in
+    case key of
+      Just k  -> (num, FlacStream bs (pos + size) (meta ++ [MetaInt k num]))
+      Nothing -> (num, FlacStream bs (pos + size)  meta)
+
+parseNumLE :: Int -> Maybe String -> FP Int
+parseNumLE size key  = FP $ \(FlacStream bs pos meta) ->
+  let num = getNumByteLE size $ C.drop pos bs in
+    case key of
+      Just k  -> (num, FlacStream bs (pos + size) (meta ++ [MetaInt k num]))
+      Nothing -> (num, FlacStream bs (pos + size)  meta)
+
+
+searchFlacVorbisComment :: FP Bool
+searchFlacVorbisComment = do
+  block_type   <- parseNum 1 $ Just "BLOCK_TYPE"
+  block_length <- parseNum 3 $ Just "BLOCK_LENGTH"
   if (block_type == 4) || (block_type == (128 + 4)) then do
-    getPos
+    return True
   else do
     if block_type > 127 then do
-      setPos pos_b
+      return False
     else do
-      searchFlacVorbisComment bs (pos_b + block_length + 4)    
+      parseNext block_length
+      searchFlacVorbisComment
+
 
 
 getFlacMetadataFromFile ::  FilePath -> IO [MetaData]
 getFlacMetadataFromFile path = do
   bs <- mmapFileByteString path Nothing
   return $ fst $ runFP ( do
-        magic <- parseStr   "MAGIC" 4
-        if magic /= "fLaC" then
-          error $ path ++ ": cannot find a MAGIC of FLAC file."
-        else do
-          pos_b <- getPos
-          block_type <- parseNum   "BLOCK_TYPE.0" 1
-          if block_type /= 0 && block_type /= 128 then
-            error $ path ++ ": first METADATA BLOCK is not STREAMINFO"
-          else 
-            if block_type == 0 then do
-              pos_e <- searchFlacVorbisComment bs pos_b
-              parseNext (pos_e - pos_b - 1)
-              if pos_b /= pos_e then do
-                vlen <- parseNumLE "vender_length" 4
-                parseStr   "vender_string" vlen
-                clen <- parseNumLE "user_comment_list_length" 4
-                forM_ [1..clen] $ \x -> parseNumLE ("comment len #" ++ show x) 4 >>= parseStr ("comment#" ++ show x)
-                getMeta
-              else do
-                getMeta
-            else do -- only STREAMINFO exists
-              getMeta
-
+    magic <- parseStr 4 $ Just "MAGIC"
+    if magic /= "fLaC" then
+      error $ path ++ ": cannot find a MAGIC of FLAC file."
+    else do
+      found <- searchFlacVorbisComment
+      if found then do
+        vlen <- parseNumLE 4 Nothing -- "vender_length"
+        parseStr vlen $ Just "vender_string"
+        clen <- parseNumLE 4 $ Just "user_comment_list_length"
+        forM_ [1..clen] $ \x -> do
+          cl <- parseNumLE 4 Nothing -- ("comment len #" ++ show x)
+          parseMetaStr cl
+        getMeta
+      else do
+        getMeta
     ) (FlacStream bs 0 [])
