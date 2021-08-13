@@ -1,9 +1,15 @@
+{-# LANGUAGE OverloadedStrings #-}
+
 import Test.HUnit
+import Text.Show.Unicode
 import Control.Monad ( void )
 import TAGnome.Files
 
+
 main :: IO ()
-main =
+main = do
+    meta <- getFlacMetadataFromFile "./tv/01/tone2.flac"
+    uprint meta
     void $ runTestTT $ TestList
       [
 {-
@@ -63,12 +69,12 @@ main =
 
         ,"01_00_getFlacMetadataFromFile" ~: (do
           e <- getFlacMetadataFromFile "./tv/01/tone1.flac"
-          assertEqual "01_00 flac matadata retrival." [MetaStr "MAGIC" "fLaC"]  e)
+          assertEqual "01_00 flac matadata retrival." [MetaStr "MAGIC" "fLaC",MetaInt "BLOCK_TYPE" 0,MetaInt "BLOCK_LENGTH" 34,MetaInt "BLOCK_TYPE" 4,MetaInt "BLOCK_LENGTH" 125,MetaStr "vender_string" "Lavf56.40.101",MetaInt "user_comment_list_length" 8,MetaStr "date" "",MetaStr "artist" "",MetaStr "title" "",MetaStr "genre" "",MetaStr "DESCRIPTION" "",MetaStr "IENG" "",MetaStr "copyright" "",MetaStr "encoder" "Lavf56.40.101"]  e)
 
 
         ,"01_01_getFlacMetadataFromFile" ~: (do
           e <- getFlacMetadataFromFile "./tv/01/tone2.flac"
-          assertEqual "01_01 flac matadata retrival." [MetaStr "MAGIC" "fLaC"]  e)
+          assertEqual "01_01 flac matadata retrival." [MetaStr "MAGIC" "fLaC",MetaInt "BLOCK_TYPE" 0,MetaInt "BLOCK_LENGTH" 34,MetaInt "BLOCK_TYPE" 4,MetaInt "BLOCK_LENGTH" 553,MetaStr "vender_string" "Lavf56.40.101",MetaInt "user_comment_list_length" 19,MetaStr "DATE" "2021-01-01",MetaStr "ARTIST" "sample artist",MetaStr "TITLE" "sample title",MetaStr "GENRE" "sample genre",MetaStr "DESCRIPTION" "",MetaStr "IENG" "",MetaStr "copyright" "",MetaStr "encoder" "Lavf56.40.101",MetaStr "DISCTOTAL" "2",MetaStr "TOTALTRACKS" "10",MetaStr "DISCNUMBER" "1",MetaStr "TITLESORT" "ｓａｍｐｌｅ　ｔｉｔｌｅ",MetaStr "ALBUMSORT" "ｓａｍｐｌｅ　ａｌｂｕｍ",MetaStr "COMPOSER" "sample creator",MetaStr "ALBUM" "sample album",MetaStr "TRACKNUMBER" "2",MetaStr "ALBUMARTIST" "sample album artist",MetaStr "ALBUMARTISTSORT" "ｓａｍｐｌｅ　ａｌｂｕｍ　ａｒｔｉｓｔ",MetaStr "ARTISTSORT" "ｓａｍｐｌｅ　ａｒｔｉｓｔ"]  e)
 
 
       ]

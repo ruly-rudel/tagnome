@@ -26,6 +26,8 @@ dependencies:
 - bytestring
 - mmap
 - string-conversions
+- text
+- unicode-show
 
 library:
   source-dirs: src

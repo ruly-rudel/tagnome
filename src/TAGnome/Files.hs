@@ -1,4 +1,6 @@
 {-# LANGUAGE TupleSections #-}
+{-# LANGUAGE OverloadedStrings #-}
+
 module TAGnome.Files
   (
       listFilesRecursive
@@ -16,6 +18,7 @@ import Data.Char
 import Control.Applicative
 import Control.Monad
 import Data.String.Conversions
+import qualified Data.Text as T
 
 
 {-
@@ -52,21 +55,21 @@ listFilesRecursive1 path = do
 
 
 
-data MetaData = MetaInt String Int | MetaStr String String deriving (Eq, Show)
+data MetaData = MetaInt String Int | MetaStr String T.Text  deriving (Eq, Show)
 
 data FlacStream = FlacStream C.ByteString Int [MetaData]
 
 newtype FP a = FP { runFP :: FlacStream -> (a, FlacStream)}
 
-getStrByte :: Int -> C.ByteString -> String
-getStrByte n bs = map (chr . fromEnum) $ C.unpack $ C.take n bs
+getStrByte :: Int -> C.ByteString -> T.Text
+getStrByte n bs = convertString $ C.take n bs
 
 getMetaStrByte :: Int -> C.ByteString  -> MetaData
 getMetaStrByte n bs =
   let str = C.take n bs
 
-      key = map (chr .fromEnum) $ C.unpack $ C.takeWhile ('='/=) str
-      val = map (chr .fromEnum) $ C.unpack $ C.tail $ C.dropWhile ('='/=) str in
+      key = convertString $ C.takeWhile ('='/=) str
+      val = convertString $ C.tail $ C.dropWhile ('='/=) str in
         MetaStr key val
 
 getNumByte :: Int -> C.ByteString -> Int
@@ -101,7 +104,7 @@ getMeta =  FP $ \fs -> case fs of
 parseNext :: Int -> FP Int
 parseNext size = FP $ \(FlacStream bs pos meta) -> (size, FlacStream bs (pos + size) meta)
 
-parseStr :: Int -> Maybe String -> FP String
+parseStr :: Int -> Maybe String -> FP T.Text
 parseStr size key  = FP $ \(FlacStream bs pos meta) ->
   if size > 1024 then
     error "field size exceeds 1kbyte."
@@ -111,7 +114,7 @@ parseStr size key  = FP $ \(FlacStream bs pos meta) ->
         Just k  -> (str, FlacStream bs (pos + size) (meta ++ [MetaStr k str]))
         Nothing -> (str, FlacStream bs (pos + size) meta)
 
-parseMetaStr :: Int -> FP String
+parseMetaStr :: Int -> FP T.Text
 parseMetaStr size = FP $ \(FlacStream bs pos meta) ->
   if size > 1024 then
     error "field size exceeds 1kbyte."
@@ -119,7 +122,7 @@ parseMetaStr size = FP $ \(FlacStream bs pos meta) ->
     let str = getMetaStrByte size $ B.drop pos bs in
       case str of
         MetaStr key val -> (val, FlacStream bs (pos + size) (meta ++ [str]))
-        MetaInt _ _     -> ([],  FlacStream bs pos meta)
+        MetaInt _ _     -> ("",  FlacStream bs pos meta)
 
 
 
