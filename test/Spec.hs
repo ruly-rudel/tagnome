@@ -62,8 +62,13 @@ main =
 
 
         ,"01_00_getFlacMetadataFromFile" ~: (do
-          e <- getFlacMetadataFromFile "./tv/01/tone2.flac"
+          e <- getFlacMetadataFromFile "./tv/01/tone1.flac"
           assertEqual "01_00 flac matadata retrival." [MetaStr "MAGIC" "fLaC"]  e)
+
+
+        ,"01_01_getFlacMetadataFromFile" ~: (do
+          e <- getFlacMetadataFromFile "./tv/01/tone2.flac"
+          assertEqual "01_01 flac matadata retrival." [MetaStr "MAGIC" "fLaC"]  e)
 
 
       ]
