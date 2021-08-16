@@ -5,6 +5,7 @@
 module TAGnome.Files
   (
       listFilesRecursive
+     ,FilePathEx(FilePathEx)
      ,getFlacMetadataFromFile
      ,MetaData(MetaInt, MetaStr)
   ) where
@@ -22,16 +23,18 @@ import Data.String.Conversions
 import qualified Data.Text as T
 
 
-listFilesRecursive :: MonadIO m => [FilePath] -> m [FilePath]
+data FilePathEx = FilePathEx FilePath FilePath deriving (Eq, Ord, Show)
+
+listFilesRecursive :: MonadIO m => [FilePathEx] -> m [FilePathEx]
 listFilesRecursive = fmap concat . traverse listFilesRecursive1
 
-listFilesRecursive1 :: MonadIO m => FilePath -> m [FilePath]
-listFilesRecursive1 path = do
-  e <- doesDirectoryExist path
+listFilesRecursive1 :: MonadIO m => FilePathEx -> m [FilePathEx]
+listFilesRecursive1 (FilePathEx base path) = do
+  e <- doesDirectoryExist $ base ++ path
   if e then do
-    list <- listDirectory path
-    listFilesRecursive (sort (map ((path ++ "/") ++) list))
-  else return [path]
+    list <- listDirectory $ base ++ path
+    listFilesRecursive $ sort (map (\x -> FilePathEx base $ path ++ "/" ++ x) list)
+  else return [FilePathEx base path]
 
 
 
@@ -83,14 +86,14 @@ parseNext :: Int -> FP Int
 parseNext size = FP $ \(FlacStream bs pos meta) -> (size, FlacStream bs (pos + size) meta)
 
 parseStr :: Int -> Maybe String -> FP T.Text
-parseStr size key 
+parseStr size key
   | size > 1024 = error "field size exceeds 1kbyte."
   | otherwise = FP $ \(FlacStream bs pos meta) ->
       let str = getStrByte size $ B.drop pos bs in
         (str, FlacStream bs (pos + size) $ case key of Just k -> meta ++ [MetaStr k str]; Nothing -> meta)
 
 parseMetaStr :: Int -> FP T.Text
-parseMetaStr size 
+parseMetaStr size
   | size > 1024 = error "filed size exceeds 1kbyte"
   | otherwise   = FP $ \(FlacStream bs pos meta) ->
       let (key, val) = getMetaStrByte size $ B.drop pos bs in
