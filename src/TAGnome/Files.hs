@@ -7,7 +7,7 @@ module TAGnome.Files
       listFilesRecursive
      ,FilePathEx(FilePathEx)
      ,getFlacMetadataFromFile
-     ,MetaData(MetaInt, MetaStr)
+     ,MetaData(MetaFile, MetaInt, MetaStr)
   ) where
 
 import Data.List
@@ -38,7 +38,7 @@ listFilesRecursive1 (FilePathEx base path) = do
 
 
 
-data MetaData = MetaInt String Int | MetaStr String T.Text  deriving (Eq, Show)
+data MetaData = MetaFile String FilePathEx | MetaInt String Int | MetaStr String T.Text  deriving (Eq, Show)
 
 data FlacStream = FlacStream C.ByteString Int [MetaData]
 
@@ -123,13 +123,13 @@ searchFlacVorbisComment = do
       parseNext block_length
       searchFlacVorbisComment
 
-getFlacMetadataFromFile ::  FilePath -> IO [MetaData]
-getFlacMetadataFromFile path = do
-  bs <- mmapFileByteString path Nothing
+getFlacMetadataFromFile ::  FilePathEx -> IO [MetaData]
+getFlacMetadataFromFile (FilePathEx base path) = do
+  bs <- mmapFileByteString (base ++ path) Nothing
   return $ fst $ runFP ( do
     magic <- parseStr 4 $ Just "MAGIC"
     if magic /= "fLaC" then
-      error $ path ++ ": cannot find a MAGIC of FLAC file."
+      error $ base ++ path ++ ": cannot find a MAGIC of FLAC file."
     else do
       found <- searchFlacVorbisComment
       if found then do
@@ -142,4 +142,4 @@ getFlacMetadataFromFile path = do
         getMeta
       else do
         getMeta
-    ) (FlacStream bs 0 [])
+    ) (FlacStream bs 0 [MetaFile "orignal_file" $ FilePathEx base path ])

@@ -8,7 +8,7 @@ import TAGnome.Files
 
 main :: IO ()
 main = do
-    meta <- getFlacMetadataFromFile "/mnt/d/メディア/Music/CD/アニメ・ゲーム//DATE A LIVE/Date A Music Extension/01-Dead Or Alive.flac"
+    meta <- getFlacMetadataFromFile $ FilePathEx "/mnt/d/メディア/Music/CD/アニメ・ゲーム" "/DATE A LIVE/Date A Music Extension/01-Dead Or Alive.flac"
     uprint meta
     void $ runTestTT $ TestList
       [
@@ -47,11 +47,11 @@ main = do
            e)
 
         ,"01_00_getFlacMetadataFromFile" ~: (do
-          e <- getFlacMetadataFromFile "./tv/01/tone1.flac"
-          assertEqual "01_00 flac matadata retrival." [MetaStr "MAGIC" "fLaC",MetaStr "vender_string" "Lavf56.40.101",MetaInt "user_comment_list_length" 8,MetaStr "date" "",MetaStr "artist" "",MetaStr "title" "",MetaStr "genre" "",MetaStr "DESCRIPTION" "",MetaStr "IENG" "",MetaStr "copyright" "",MetaStr "encoder" "Lavf56.40.101"]  e)
+          e <- getFlacMetadataFromFile $ FilePathEx "./tv/01" "/tone1.flac"
+          assertEqual "01_00 flac matadata retrival." [MetaFile "orignal_file" (FilePathEx "./tv/01" "/tone1.flac"),MetaStr "MAGIC" "fLaC",MetaStr "vender_string" "Lavf56.40.101",MetaInt "user_comment_list_length" 8,MetaStr "date" "",MetaStr "artist" "",MetaStr "title" "",MetaStr "genre" "",MetaStr "DESCRIPTION" "",MetaStr "IENG" "",MetaStr "copyright" "",MetaStr "encoder" "Lavf56.40.101"]  e)
 
 
         ,"01_01_getFlacMetadataFromFile" ~: (do
-          e <- getFlacMetadataFromFile "./tv/01/tone2.flac"
-          assertEqual "01_01 flac matadata retrival." [MetaStr "MAGIC" "fLaC",MetaStr "vender_string" "Lavf56.40.101",MetaInt "user_comment_list_length" 19,MetaStr "DATE" "2021-01-01",MetaStr "ARTIST" "sample artist",MetaStr "TITLE" "sample title",MetaStr "GENRE" "sample genre",MetaStr "DESCRIPTION" "",MetaStr "IENG" "",MetaStr "copyright" "",MetaStr "encoder" "Lavf56.40.101",MetaStr "DISCTOTAL" "2",MetaStr "TOTALTRACKS" "10",MetaStr "DISCNUMBER" "1",MetaStr "TITLESORT" "ｓａｍｐｌｅ　ｔｉｔｌｅ",MetaStr "ALBUMSORT" "ｓａｍｐｌｅ　ａｌｂｕｍ",MetaStr "COMPOSER" "sample creator",MetaStr "ALBUM" "sample album",MetaStr "TRACKNUMBER" "2",MetaStr "ALBUMARTIST" "sample album artist",MetaStr "ALBUMARTISTSORT" "ｓａｍｐｌｅ　ａｌｂｕｍ　ａｒｔｉｓｔ",MetaStr "ARTISTSORT" "ｓａｍｐｌｅ　ａｒｔｉｓｔ"]  e)
+          e <- getFlacMetadataFromFile $ FilePathEx "./tv/01" "/tone2.flac"
+          assertEqual "01_01 flac matadata retrival." [MetaFile "orignal_file" (FilePathEx "./tv/01" "/tone2.flac"),MetaStr "MAGIC" "fLaC",MetaStr "vender_string" "Lavf56.40.101",MetaInt "user_comment_list_length" 19,MetaStr "DATE" "2021-01-01",MetaStr "ARTIST" "sample artist",MetaStr "TITLE" "sample title",MetaStr "GENRE" "sample genre",MetaStr "DESCRIPTION" "",MetaStr "IENG" "",MetaStr "copyright" "",MetaStr "encoder" "Lavf56.40.101",MetaStr "DISCTOTAL" "2",MetaStr "TOTALTRACKS" "10",MetaStr "DISCNUMBER" "1",MetaStr "TITLESORT" "ｓａｍｐｌｅ　ｔｉｔｌｅ",MetaStr "ALBUMSORT" "ｓａｍｐｌｅ　ａｌｂｕｍ",MetaStr "COMPOSER" "sample creator",MetaStr "ALBUM" "sample album",MetaStr "TRACKNUMBER" "2",MetaStr "ALBUMARTIST" "sample album artist",MetaStr "ALBUMARTISTSORT" "ｓａｍｐｌｅ　ａｌｂｕｍ　ａｒｔｉｓｔ",MetaStr "ARTISTSORT" "ｓａｍｐｌｅ　ａｒｔｉｓｔ"]  e)
       ]
