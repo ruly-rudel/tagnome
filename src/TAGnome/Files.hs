@@ -1,5 +1,6 @@
 {-# LANGUAGE TupleSections #-}
 {-# LANGUAGE OverloadedStrings #-}
+{-# LANGUAGE StrictData #-}
 
 module TAGnome.Files
   (
@@ -82,20 +83,18 @@ parseNext :: Int -> FP Int
 parseNext size = FP $ \(FlacStream bs pos meta) -> (size, FlacStream bs (pos + size) meta)
 
 parseStr :: Int -> Maybe String -> FP T.Text
-parseStr size key  = FP $ \(FlacStream bs pos meta) ->
-  if size > 1024 then
-    error "field size exceeds 1kbyte."
-  else
-    let str = getStrByte size $ B.drop pos bs in
-      (str, FlacStream bs (pos + size) $ case key of Just k -> meta ++ [MetaStr k str]; Nothing -> meta)
+parseStr size key 
+  | size > 1024 = error "field size exceeds 1kbyte."
+  | otherwise = FP $ \(FlacStream bs pos meta) ->
+      let str = getStrByte size $ B.drop pos bs in
+        (str, FlacStream bs (pos + size) $ case key of Just k -> meta ++ [MetaStr k str]; Nothing -> meta)
 
 parseMetaStr :: Int -> FP T.Text
-parseMetaStr size = FP $ \(FlacStream bs pos meta) ->
-  if size > 1024 then
-    error "field size exceeds 1kbyte."
-  else
-    let (key, val) = getMetaStrByte size $ B.drop pos bs in
-      (val, FlacStream bs (pos + size) (meta ++ [MetaStr key val]))
+parseMetaStr size 
+  | size > 1024 = error "filed size exceeds 1kbyte"
+  | otherwise   = FP $ \(FlacStream bs pos meta) ->
+      let (key, val) = getMetaStrByte size $ B.drop pos bs in
+        (val, FlacStream bs (pos + size) (meta ++ [MetaStr key val]))
 
 parseNum   :: Int -> Maybe String -> FP Int
 parseNum   = updateMetaNum getNumByte
@@ -110,8 +109,8 @@ updateMetaNum fn size key = FP $ \(FlacStream bs pos meta) ->
 
 searchFlacVorbisComment :: FP Bool
 searchFlacVorbisComment = do
-  block_type   <- parseNum 1 $ Just "BLOCK_TYPE"
-  block_length <- parseNum 3 $ Just "BLOCK_LENGTH"
+  block_type   <- parseNum 1 Nothing --  "BLOCK_TYPE"
+  block_length <- parseNum 3 Nothing --  "BLOCK_LENGTH"
   if (block_type == 4) || (block_type == (128 + 4)) then do
     return True
   else do
