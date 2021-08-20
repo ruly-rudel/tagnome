@@ -28,6 +28,8 @@ dependencies:
 - string-conversions
 - text
 - unicode-show
+- exceptions
+- mtl
 
 library:
   source-dirs: src

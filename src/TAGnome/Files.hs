@@ -123,23 +123,40 @@ searchFlacVorbisComment = do
       parseNext block_length
       searchFlacVorbisComment
 
-getFlacMetadataFromFile ::  FilePathEx -> IO [MetaData]
-getFlacMetadataFromFile (FilePathEx base path) = do
-  bs <- mmapFileByteString (base ++ path) Nothing
-  return $ fst $ runFP ( do
-    magic <- parseStr 4 $ Just "MAGIC"
-    if magic /= "fLaC" then
-      error $ base ++ path ++ ": cannot find a MAGIC of FLAC file."
-    else do
-      found <- searchFlacVorbisComment
-      if found then do
-        vlen <- parseNumLE 4 Nothing -- "vender_length"
-        parseStr vlen $ Just "vender_string"
-        clen <- parseNumLE 4 $ Just "user_comment_list_length"
-        forM_ [1..clen] $ \x -> do
-          cl <- parseNumLE 4 Nothing -- ("comment len #" ++ show x)
-          parseMetaStr cl
-        getMeta
-      else do
-        getMeta
-    ) (FlacStream bs 0 [MetaFile "orignal_file" $ FilePathEx base path ])
+lastn :: Int -> [Char] -> [Char]
+lastn num str =
+  let len = length str in
+    if len < num then str else drop (len - num) str
+
+endWith :: [Char] -> [Char] -> Bool
+endWith suffix str =
+  let len = length suffix in
+    suffix == lastn len str
+
+getFlacMetadataFromFile ::  FilePathEx -> IO (Maybe [MetaData])
+getFlacMetadataFromFile (FilePathEx base path) = 
+  if endWith ".flac" path then do 
+    fe <- doesFileExist (base ++ path)
+    if fe then do
+      bs <- mmapFileByteString (base ++ path) Nothing
+      return $ Just $ fst $ runFP ( do
+        magic <- parseStr 4 $ Just "MAGIC"
+        if magic /= "fLaC" then
+          error $ base ++ path ++ ": cannot find a MAGIC of FLAC file."
+        else do
+          found <- searchFlacVorbisComment
+          if found then do
+            vlen <- parseNumLE 4 Nothing -- "vender_length"
+            parseStr vlen $ Just "vender_string"
+            clen <- parseNumLE 4 $ Just "user_comment_list_length"
+            forM_ [1..clen] $ \x -> do
+              cl <- parseNumLE 4 Nothing -- ("comment len #" ++ show x)
+              parseMetaStr cl
+            getMeta
+          else do
+            getMeta
+        ) (FlacStream bs 0 [MetaFile "orignal_file" $ FilePathEx base path ])
+    else return Nothing
+  else return Nothing
+
+

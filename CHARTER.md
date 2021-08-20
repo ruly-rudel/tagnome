@@ -76,12 +76,16 @@
 
     - -e指定がない場合に実行
 
-4. ディレクトリを入力とし、そのディレクトリ以下のファイルのリストを返す機能
+4. (複数の)ディレクトリを入力とし、そのディレクトリ以下のファイルのリストを返す機能
+    - 指定したディレクトリをベースディレクトリとし、ベースディレクトリとそこからの相対パスのペアを返す
 
 5. (標準入力からの)スクリプトをパースし、メタデータ変更ルール（以下ルールと略）のリストを返す機能
     - 難しそうだからDSLっぽくしてコンパイルで埋め込むかも
 
-6. ファイル名からファイルのメタデータを抽出してフルパスと一緒に返す機能
+6. ファイル名が.flacの場合、ファイルのメタデータを抽出して返す機能
+    - ファイル名が.flacでない場合、またはMAGICがfLaCでない場合、Nothingを返す
+    - 入力: (base dir) (relative path)
+    - 出力: Maybe [tags...]
     - 手順は以下とする。STREAM, METADATA_BLOCK_HEADERはbig endian、VORBIS_COMMENTのMETADATA_BLOCK_DATAはlittle endianでパースする。
         1. MAGICを読み、key "MAGIC"としてalistに格納する
         2. 最初のMETADATA_BLOCK_HEADERのBLOCK_TYPEを読み、STREAMINFO(=0)であることを確認する(未実装)
