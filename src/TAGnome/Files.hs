@@ -37,13 +37,6 @@ listFilesRecursive1 (FilePathEx base path) = do
   else return [FilePathEx base path]
 
 
-
-data MetaData = MetaFile String FilePathEx | MetaInt String Int | MetaStr String T.Text  deriving (Eq, Show)
-
-data FlacStream = FlacStream C.ByteString Int [MetaData]
-
-newtype FP a = FP { runFP :: FlacStream -> (a, FlacStream)}
-
 getStrByte :: Int -> C.ByteString -> T.Text
 getStrByte n bs = convertString $ C.take n bs
 
@@ -59,6 +52,13 @@ getNumByte n bs = foldl (\x y -> x * 256 + fromEnum y) 0 $ C.unpack $ C.take n b
 
 getNumByteLE :: Int -> C.ByteString -> Int
 getNumByteLE n bs = foldr (\x y -> fromEnum x + y * 256) 0 $ C.unpack $ C.take n bs
+
+
+data MetaData = MetaFile String FilePathEx | MetaInt String Int | MetaStr String T.Text  deriving (Eq, Show)
+
+data FlacStream = FlacStream C.ByteString Int [MetaData]
+
+newtype FP a = FP { runFP :: FlacStream -> (a, FlacStream)}
 
 instance Functor FP where
   fmap f a = FP $ \s ->
@@ -139,7 +139,7 @@ getFlacMetadataFromFile (FilePathEx base path) =
     fe <- doesFileExist (base ++ path)
     if fe then do
       bs <- mmapFileByteString (base ++ path) Nothing
-      return $ Just $ fst $ runFP ( do
+      return $ Just $ fst $ (`runFP` FlacStream bs 0 [MetaFile "orignal_file" $ FilePathEx base path ]) $ do
         magic <- parseStr 4 $ Just "MAGIC"
         if magic /= "fLaC" then
           error $ base ++ path ++ ": cannot find a MAGIC of FLAC file."
@@ -154,8 +154,7 @@ getFlacMetadataFromFile (FilePathEx base path) =
               parseMetaStr cl
             getMeta
           else do
-            getMeta
-        ) (FlacStream bs 0 [MetaFile "orignal_file" $ FilePathEx base path ])
+            getMeta       
     else return Nothing
   else return Nothing
 
