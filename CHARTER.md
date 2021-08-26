@@ -83,9 +83,9 @@
     - 難しそうだからDSLっぽくしてコンパイルで埋め込むかも
 
 6. ファイル名が.flacの場合、ファイルのメタデータを抽出して返す機能
-    - ファイル名が.flacでない場合、またはMAGICがfLaCでない場合、Nothingを返す
+    - ファイル名が.flacでない場合、MAGICがfLaCでない場合、その他エラーの場合は例外を返す
     - 入力: (base dir) (relative path)
-    - 出力: Maybe [tags...]
+    - 出力: [tags...]
     - 手順は以下とする。STREAM, METADATA_BLOCK_HEADERはbig endian、VORBIS_COMMENTのMETADATA_BLOCK_DATAはlittle endianでパースする。
         1. MAGICを読み、"fLaC"であることを確認する
         2. 最初のMETADATA_BLOCK_HEADERのBLOCK_TYPEを読み、STREAMINFO(=0)であることを確認する(未実装)
