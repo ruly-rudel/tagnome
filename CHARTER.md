@@ -93,7 +93,7 @@
         4. METADATA_BLOCK_HEADERのBLOCK_TYPEがVORBIS_COMMENT(=4)になるか、last-metadata-block flagが立つまでMETADATA_BLOCK_HEADERを読みLengthの長さだけMETADATA_BLOCK_DATAを読み飛ばす
         5. METADATA_BLOCK_HEADERのBLOCK_TYPEがVORBIS_COMMENTでなく、かつlast-metadata-blockが立っていた場合は例外を発生させて処理を終了する
         6. vender_length、vender_string、user_comment_list_lengthを取得する
-        7. user_comment_list_lengthだけ、Lengthとuser_commentを取得し、user_comment文字列を「=」で二分割し、keyとvalueにしてalistに格納する
+        7. user_comment_list_lengthだけ、Lengthとuser_commentを取得し、user_comment文字列を「=」で二分割し、keyとvalueにしてalistに格納する。現状はここで「=」が含まれていない場合に例外が出て実行が終了するはず。終了せずスキップするように要修正。
         8. framing_bitを読み、1がセットされていることを確認する(未実装)
     - すべてのVORBIS_COMMENTのフィールドを抽出する
     - 以下の場合はエラーとし、そのファイルに対する処理をスキップしてフルパスとエラー要因を共に表示する
