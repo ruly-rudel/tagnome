@@ -29,6 +29,7 @@ dependencies:
 - text
 - unicode-show
 - exceptions
+- transformers
 - mtl
 
 library:

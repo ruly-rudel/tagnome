@@ -1,26 +1,26 @@
-{-# LANGUAGE TupleSections #-}
 {-# LANGUAGE OverloadedStrings #-}
 {-# LANGUAGE StrictData #-}
+{-# LANGUAGE DeriveDataTypeable #-}
+{-# LANGUAGE ScopedTypeVariables #-}
+{-# LANGUAGE FlexibleContexts #-}
 
 module TAGnome.Files
   (
       listFilesRecursive
      ,FilePathEx(FilePathEx)
      ,getFlacMetadataFromFile
-     ,MetaData(MetaFile, MetaInt, MetaStr)
+     ,MetaData(MetaInt, MetaStr)
   ) where
 
+import Control.Monad.Catch
+import Control.Monad.State
 import Data.List
-import Control.Monad.IO.Class
-import UnliftIO.Directory
-import qualified Data.ByteString as B
-import qualified Data.ByteString.Char8 as C
-import System.IO.MMap
-import Data.Char
-import Control.Applicative
-import Control.Monad
 import Data.String.Conversions
+import Data.Typeable
+import qualified Data.ByteString.Char8 as C
 import qualified Data.Text as T
+import System.IO.MMap
+import UnliftIO.Directory 
 
 
 data FilePathEx = FilePathEx FilePath FilePath deriving (Eq, Ord, Show)
@@ -36,126 +36,98 @@ listFilesRecursive1 (FilePathEx base path) = do
     listFilesRecursive $ sort (map (\x -> FilePathEx base $ path ++ "/" ++ x) list)
   else return [FilePathEx base path]
 
+data TnExceptions = SuffixNotSupportedException | FlacFileNotFoundException | IsNotFlacFileException | FlacVorbisCommentNotFoundException
+  deriving (Show, Eq, Typeable)
 
-getStrByte :: Int -> C.ByteString -> T.Text
-getStrByte n bs = convertString $ C.take n bs
+instance Exception TnExceptions
 
-getMetaStrByte :: Int -> C.ByteString  -> (String, T.Text)
-getMetaStrByte n bs =
-  let str = C.take n bs
-      key = convertString $ C.takeWhile ('='/=) str
-      val = convertString $ C.tail $ C.dropWhile ('='/=) str in
-        (key, val)
+data MetaData = MetaInt String Int | MetaStr String T.Text  deriving (Eq, Show)
 
-getNumByte :: Int -> C.ByteString -> Int
-getNumByte n bs = foldl (\x y -> x * 256 + fromEnum y) 0 $ C.unpack $ C.take n bs
-
-getNumByteLE :: Int -> C.ByteString -> Int
-getNumByteLE n bs = foldr (\x y -> fromEnum x + y * 256) 0 $ C.unpack $ C.take n bs
-
-
-data MetaData = MetaFile String FilePathEx | MetaInt String Int | MetaStr String T.Text  deriving (Eq, Show)
-
-data FlacStream = FlacStream C.ByteString Int [MetaData]
-
-newtype FP a = FP { runFP :: FlacStream -> (a, FlacStream)}
-
-instance Functor FP where
-  fmap f a = FP $ \s ->
-    let (a', s') = runFP a s
-      in (f a', s')
-
-instance Applicative FP where
-  pure a = FP (a, )
-  (<*>) = undefined
-
-instance Monad FP where
-  x >>= y = FP $ \s ->
-    let (a, s') = runFP x s
-      in runFP (y a) s'
-
-  x >> y = FP $ \s ->
-    let (_, s') = runFP x s
-      in runFP y s'
-
-getMeta :: FP [MetaData]
-getMeta =  FP $ \fs -> case fs of
-  FlacStream bs pos meta -> (meta, fs)
-
-parseNext :: Int -> FP Int
-parseNext size = FP $ \(FlacStream bs pos meta) -> (size, FlacStream bs (pos + size) meta)
-
-parseStr :: Int -> Maybe String -> FP T.Text
-parseStr size key
-  | size > 1024 = error "field size exceeds 1kbyte."
-  | otherwise = FP $ \(FlacStream bs pos meta) ->
-      let str = getStrByte size $ B.drop pos bs in
-        (str, FlacStream bs (pos + size) $ case key of Just k -> meta ++ [MetaStr k str]; Nothing -> meta)
-
-parseMetaStr :: Int -> FP T.Text
-parseMetaStr size
-  | size > 1024 = error "filed size exceeds 1kbyte"
-  | otherwise   = FP $ \(FlacStream bs pos meta) ->
-      let (key, val) = getMetaStrByte size $ B.drop pos bs in
-        (val, FlacStream bs (pos + size) (meta ++ [MetaStr key val]))
-
-parseNum   :: Int -> Maybe String -> FP Int
-parseNum   = updateMetaNum getNumByte
-
-parseNumLE :: Int -> Maybe String -> FP Int
-parseNumLE = updateMetaNum getNumByteLE
-
-updateMetaNum :: (Int -> C.ByteString -> Int) -> Int -> Maybe String -> FP Int
-updateMetaNum fn size key = FP $ \(FlacStream bs pos meta) ->
-  let num = fn size $ C.drop pos bs in
-    (num, FlacStream bs (pos + size) $ case key of Just k -> meta ++ [MetaInt k num]; Nothing -> meta )
-
-searchFlacVorbisComment :: FP Bool
-searchFlacVorbisComment = do
-  block_type   <- parseNum 1 Nothing --  "BLOCK_TYPE"
-  block_length <- parseNum 3 Nothing --  "BLOCK_LENGTH"
-  if (block_type == 4) || (block_type == (128 + 4)) then do
-    return True
-  else do
-    if block_type > 127 then do
-      return False
-    else do
-      parseNext block_length
-      searchFlacVorbisComment
-
-lastn :: Int -> [Char] -> [Char]
+lastn :: Int -> [a] -> [a]
 lastn num str =
   let len = length str in
     if len < num then str else drop (len - num) str
 
-endWith :: [Char] -> [Char] -> Bool
+endWith :: Eq a => [a] -> [a] -> Bool
 endWith suffix str =
-  let len = length suffix in
-    suffix == lastn len str
+  suffix == lastn (length suffix) str
 
-getFlacMetadataFromFile ::  FilePathEx -> IO (Maybe [MetaData])
-getFlacMetadataFromFile (FilePathEx base path) = 
-  if endWith ".flac" path then do 
-    fe <- doesFileExist (base ++ path)
-    if fe then do
-      bs <- mmapFileByteString (base ++ path) Nothing
-      return $ Just $ fst $ (`runFP` FlacStream bs 0 [MetaFile "orignal_file" $ FilePathEx base path ]) $ do
-        magic <- parseStr 4 $ Just "MAGIC"
-        if magic /= "fLaC" then
-          error $ base ++ path ++ ": cannot find a MAGIC of FLAC file."
-        else do
-          found <- searchFlacVorbisComment
-          if found then do
-            vlen <- parseNumLE 4 Nothing -- "vender_length"
-            parseStr vlen $ Just "vender_string"
-            clen <- parseNumLE 4 $ Just "user_comment_list_length"
-            forM_ [1..clen] $ \x -> do
-              cl <- parseNumLE 4 Nothing -- ("comment len #" ++ show x)
-              parseMetaStr cl
-            getMeta
-          else do
-            getMeta       
-    else return Nothing
-  else return Nothing
+skipByte :: (MonadState C.ByteString m) => Int -> m C.ByteString
+skipByte n = do
+  bs <- get
+  put $ C.drop n bs
+  return bs
 
+getByte :: (MonadState C.ByteString m) => Int -> m C.ByteString
+getByte n = do
+  bs <- skipByte n
+  return $ C.take n bs
+
+getStrByte :: (MonadState C.ByteString m) => Int -> m [Char]
+getStrByte n = convertString <$> getByte n
+
+getPairStrByte :: (MonadState C.ByteString m) => Int -> m ([Char], T.Text)
+getPairStrByte n = do
+  str <- getByte n
+  let key = convertString $ C.takeWhile ('='/=) str
+      val = convertString $ C.tail $ C.dropWhile ('='/=) str in
+        return (key, val)
+
+getNumByteBE :: (MonadState C.ByteString m) => Int -> m Int
+getNumByteBE n = do
+  str <- getByte n
+  return $ foldl (\x y -> x * 256 + fromEnum y) 0 $ C.unpack str
+
+getNumByteLE :: (MonadState C.ByteString m) => Int -> m Int
+getNumByteLE n = do
+  str <- getByte n
+  return $ foldr (\x y -> fromEnum x + y * 256) 0 $ C.unpack str
+
+unlessM :: Monad m => m Bool -> m () -> m ()
+unlessM mb ma = do
+  r <- mb
+  unless r ma
+
+parseMagic :: (MonadState C.ByteString m, MonadThrow m) => m [Char]
+parseMagic = do
+  magic <- getStrByte 4
+  if magic == "fLaC" then
+    return magic
+  else
+    throwM IsNotFlacFileException
+
+skipToVorbisComment :: (MonadState C.ByteString m, MonadThrow m) => m Int
+skipToVorbisComment = do
+  block_type <- getNumByteBE 1
+  block_length <- getNumByteBE 3
+  if block_type == 4 || block_type == (128 + 4) then
+    return block_type
+  else do
+    if block_type > 127 then
+      throwM FlacVorbisCommentNotFoundException
+    else do
+      skipByte block_length
+      skipToVorbisComment
+
+parseVorbisComment :: (MonadState C.ByteString m, MonadThrow m) => m [MetaData]
+parseVorbisComment = do
+  vender_length <- getNumByteLE 4
+  vender_string <- getStrByte vender_length
+  user_comment_list_length <- getNumByteLE 4
+  forM [1..user_comment_list_length] $ \x -> do
+    cl <- getNumByteLE 4
+    (key, val) <- getPairStrByte cl
+    return $ MetaStr key val
+
+getFlacMetadataFromFile :: (MonadIO m, MonadThrow m) => FilePathEx -> m [MetaData]
+getFlacMetadataFromFile (FilePathEx base path) = do
+  unless  (endWith ".flac" fullpath) $ throwM SuffixNotSupportedException
+  unlessM (doesFileExist   fullpath) $ throwM FlacFileNotFoundException
+  bs <- liftIO $ mmapFileByteString fullpath Nothing
+  (`evalStateT` bs) $ do
+    parseMagic
+    skipToVorbisComment
+    parseVorbisComment
+  where
+    fullpath = base ++ path
 

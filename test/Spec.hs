@@ -8,8 +8,10 @@ import TAGnome.Files
 
 main :: IO ()
 main = do
+  {-
     meta <- getFlacMetadataFromFile $ FilePathEx "/mnt/d/メディア/Music/CD/アニメ・ゲーム" "/DATE A LIVE/Date A Music Extension/01-Dead Or Alive.flac"
     uprint meta
+  -}
     void $ runTestTT $ TestList
       [
          "00_06_listFilesRecursive" ~: (do
@@ -23,7 +25,7 @@ main = do
         ,"00_08_listFilesRecursive" ~: (do
           e <- listFilesRecursive [FilePathEx "./tv/00" ""]
           assertEqual "00_08 normal 01." [FilePathEx "./tv/00" "/dir1/file3", FilePathEx "./tv/00" "/dir1/file4", FilePathEx "./tv/00" "/file1", FilePathEx "./tv/00" "/file2"] e)
-          
+
         ,"00_09_listFilesRecursive" ~: (do
           e <- listFilesRecursive [FilePathEx "./tv/00/dir1" ""]
           assertEqual "00_09 normal 02." [FilePathEx "./tv/00/dir1" "/file3", FilePathEx "./tv/00/dir1" "/file4"] e)
@@ -31,11 +33,11 @@ main = do
         ,"00_10_listFilesRecursive" ~: (do
           e <- listFilesRecursive [FilePathEx "./tv/00/dir2/dir3" ""]
           assertEqual "00_10 empty dir." [] e)
-          
+
         ,"00_11_listFilesRecursive" ~: (do
           e <- listFilesRecursive [FilePathEx "./tv/00/dir2/" ""]
           assertEqual "00_11 only single dir." [] e)
-          
+
         ,"00_12_listFilesRecursive" ~: (do
           e <- listFilesRecursive [FilePathEx "./tv/00/dir1" "", FilePathEx "./tv/00/dir2/" ""]
           assertEqual "00_12 multi delectories search." [FilePathEx "./tv/00/dir1" "/file3", FilePathEx "./tv/00/dir1" "/file4"] e)
@@ -48,19 +50,17 @@ main = do
 
         ,"01_00_getFlacMetadataFromFile" ~: (do
           e <- getFlacMetadataFromFile $ FilePathEx "./tv/01" "/tone1.flac"
-          assertEqual "01_00 flac matadata retrival." (Just [MetaFile "orignal_file" (FilePathEx "./tv/01" "/tone1.flac"),MetaStr "MAGIC" "fLaC",MetaStr "vender_string" "Lavf56.40.101",MetaInt "user_comment_list_length" 8,MetaStr "date" "",MetaStr "artist" "",MetaStr "title" "",MetaStr "genre" "",MetaStr "DESCRIPTION" "",MetaStr "IENG" "",MetaStr "copyright" "",MetaStr "encoder" "Lavf56.40.101"]) e)
-
+          assertEqual "01_00 flac matadata retrival." [{-MetaStr "MAGIC" "fLaC",MetaStr "vender_string" "Lavf56.40.101",MetaInt "user_comment_list_length" 8,-}MetaStr "date" "",MetaStr "artist" "",MetaStr "title" "",MetaStr "genre" "",MetaStr "DESCRIPTION" "",MetaStr "IENG" "",MetaStr "copyright" "",MetaStr "encoder" "Lavf56.40.101"] e)
 
         ,"01_01_getFlacMetadataFromFile" ~: (do
           e <- getFlacMetadataFromFile $ FilePathEx "./tv/01" "/tone2.flac"
-          assertEqual "01_01 flac matadata retrival." (Just [MetaFile "orignal_file" (FilePathEx "./tv/01" "/tone2.flac"),MetaStr "MAGIC" "fLaC",MetaStr "vender_string" "Lavf56.40.101",MetaInt "user_comment_list_length" 19,MetaStr "DATE" "2021-01-01",MetaStr "ARTIST" "sample artist",MetaStr "TITLE" "sample title",MetaStr "GENRE" "sample genre",MetaStr "DESCRIPTION" "",MetaStr "IENG" "",MetaStr "copyright" "",MetaStr "encoder" "Lavf56.40.101",MetaStr "DISCTOTAL" "2",MetaStr "TOTALTRACKS" "10",MetaStr "DISCNUMBER" "1",MetaStr "TITLESORT" "ｓａｍｐｌｅ　ｔｉｔｌｅ",MetaStr "ALBUMSORT" "ｓａｍｐｌｅ　ａｌｂｕｍ",MetaStr "COMPOSER" "sample creator",MetaStr "ALBUM" "sample album",MetaStr "TRACKNUMBER" "2",MetaStr "ALBUMARTIST" "sample album artist",MetaStr "ALBUMARTISTSORT" "ｓａｍｐｌｅ　ａｌｂｕｍ　ａｒｔｉｓｔ",MetaStr "ARTISTSORT" "ｓａｍｐｌｅ　ａｒｔｉｓｔ"])  e)
+          assertEqual "01_01 flac matadata retrival." [{-MetaStr "MAGIC" "fLaC",MetaStr "vender_string" "Lavf56.40.101",MetaInt "user_comment_list_length" 19,-}MetaStr "DATE" "2021-01-01",MetaStr "ARTIST" "sample artist",MetaStr "TITLE" "sample title",MetaStr "GENRE" "sample genre",MetaStr "DESCRIPTION" "",MetaStr "IENG" "",MetaStr "copyright" "",MetaStr "encoder" "Lavf56.40.101",MetaStr "DISCTOTAL" "2",MetaStr "TOTALTRACKS" "10",MetaStr "DISCNUMBER" "1",MetaStr "TITLESORT" "ｓａｍｐｌｅ　ｔｉｔｌｅ",MetaStr "ALBUMSORT" "ｓａｍｐｌｅ　ａｌｂｕｍ",MetaStr "COMPOSER" "sample creator",MetaStr "ALBUM" "sample album",MetaStr "TRACKNUMBER" "2",MetaStr "ALBUMARTIST" "sample album artist",MetaStr "ALBUMARTISTSORT" "ｓａｍｐｌｅ　ａｌｂｕｍ　ａｒｔｉｓｔ",MetaStr "ARTISTSORT" "ｓａｍｐｌｅ　ａｒｔｉｓｔ"]  e)
 
         ,"01_02_getFlacMetadataFromFile" ~: (do
           e <- getFlacMetadataFromFile $ FilePathEx "./tv/01" "/tone2.jpg"
-          assertEqual "01_02 flac matadata retrival." Nothing  e)
+          assertEqual "01_02 flac matadata retrival." []  e)
 
         ,"01_03_getFlacMetadataFromFile" ~: (do
           e <- getFlacMetadataFromFile $ FilePathEx "./tv/01" "/notexist.flac"
-          assertEqual "01_03 flac matadata retrival." Nothing  e)
-
+          assertEqual "01_03 flac matadata retrival." []  e)
       ]
