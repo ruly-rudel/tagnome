@@ -1,6 +1,6 @@
-name:                TAGnome
+name:                tagnome
 version:             0.1.0.0
-github:              "ruly-rudel/TAGnome"
+github:              "ruly-rudel/tagnome"
 license:             MIT
 author:              "Ruly Rudel"
 maintainer:          "ruly.rudel@gmail.com"
@@ -18,7 +18,7 @@ extra-source-files:
 # To avoid duplicated efforts in documentation and dealing with the
 # complications of embedding Haddock markup inside cabal files, it is
 # common to point users to the README.md file.
-description:         Please see the README on GitHub at <https://github.com/ruly-rudel/TAGnome#readme>
+description:         Please see the README on GitHub at <https://github.com/ruly-rudel/tagnome#readme>
 
 dependencies:
 - base >= 4.7 && < 5
@@ -36,7 +36,7 @@ library:
   source-dirs: src
 
 executables:
-  TAGnome-exe:
+  tagnome-exe:
     main:                Main.hs
     source-dirs:         app
     ghc-options:
@@ -44,10 +44,10 @@ executables:
     - -rtsopts
     - -with-rtsopts=-N
     dependencies:
-    - TAGnome
+    - tagnome
 
 tests:
-  TAGnome-test:
+  tagnome-test:
     main:                Spec.hs
     source-dirs:         test
     ghc-options:
@@ -55,5 +55,5 @@ tests:
     - -rtsopts
     - -with-rtsopts=-N
     dependencies:
-    - TAGnome
+    - tagnome
     - HUnit

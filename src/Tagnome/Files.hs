@@ -4,7 +4,7 @@
 {-# LANGUAGE ScopedTypeVariables #-}
 {-# LANGUAGE FlexibleContexts #-}
 
-module TAGnome.Files
+module Tagnome.Files
   (
       listFilesRecursive
      ,FilePathEx(FilePathEx)

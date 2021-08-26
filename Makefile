@@ -1,5 +1,5 @@
 STACK = stack
-TARGET = TAGnome
+TARGET = tagnome
 
 
 .PHONY:	build run test config clean distclean

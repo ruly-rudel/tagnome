@@ -1,6 +1,6 @@
 module Main where
 
-import TAGnome.Files
+import Tagnome.Files
 import Control.Monad (forM_)
 
 main :: IO ()

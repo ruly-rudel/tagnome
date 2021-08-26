@@ -3,7 +3,7 @@
 import Test.HUnit
 import Text.Show.Unicode
 import Control.Monad ( void )
-import TAGnome.Files
+import Tagnome.Files
 
 
 main :: IO ()
