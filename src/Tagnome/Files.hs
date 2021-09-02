@@ -10,6 +10,7 @@ module Tagnome.Files
      ,FilePathEx(FilePathEx)
      ,getFlacMetadataFromFile
      ,MetaData(MetaInt, MetaStr)
+     ,copyFlac
   ) where
 
 import Control.Monad.Catch
@@ -17,10 +18,14 @@ import Control.Monad.State
 import Data.List
 import Data.String.Conversions
 import Data.Typeable
+import Data.Bits
+import Data.Word
+import qualified Data.ByteString as B
 import qualified Data.ByteString.Char8 as C
 import qualified Data.Text as T
 import System.IO.MMap
 import UnliftIO.Directory 
+import UnliftIO.IO
 
 
 data FilePathEx = FilePathEx FilePath FilePath deriving (Eq, Ord, Show)
@@ -131,3 +136,61 @@ getFlacMetadataFromFile (FilePathEx base path) = do
   where
     fullpath = base ++ path
 
+
+
+
+data MetaDataFlagment = MetaDataFlagment Int Int B.ByteString
+ deriving (Show)
+
+numByteBE :: Int -> Int -> [Word8]
+numByteBE n 1 = [toEnum n]
+numByteBE n len = 
+  let n' = n .&. 255
+      m  = shiftR n 8 in
+        numByteBE m (len - 1) ++ [toEnum n']
+
+numByteLE :: Int -> Int -> [Word8]
+numByteLE n 1 = [toEnum n]
+numByteLE n len = 
+  let n' = n .&. 255
+      m  = shiftR n 8 in
+        toEnum n' : numByteLE m (len - 1)
+
+
+scanFlacMetadata :: (MonadState C.ByteString m) => m [MetaDataFlagment]
+scanFlacMetadata = do
+  block_type   <- getNumByteBE 1
+  block_length <- getNumByteBE 3
+  block_body   <- getByte block_length
+  if block_type > 127 then
+    return [MetaDataFlagment block_type block_length block_body]
+  else do
+    m <- scanFlacMetadata
+    return $ MetaDataFlagment block_type block_length block_body : m
+
+
+writeFlacMetadata :: (MonadIO m, MonadThrow m) => Handle -> [MetaDataFlagment] -> m ()
+writeFlacMetadata h md = do
+  forM_ md $ \(MetaDataFlagment bt blen body) -> do
+    liftIO $ B.hPut h $ B.pack $ numByteBE bt 1
+    liftIO $ B.hPut h $ B.pack $ numByteBE blen 3
+    liftIO $ B.hPut h body
+
+writeMagic :: (MonadIO m, MonadThrow m) => Handle -> [Char] -> m ()
+writeMagic h magic = do
+  liftIO $ C.hPut h $ C.pack magic
+
+copyFlac :: MonadIO m => FilePath -> FilePath -> m ()
+copyFlac src dst = do
+  bs <- liftIO $ mmapFileByteString src Nothing
+  liftIO $ withBinaryFile dst WriteMode (\h -> do
+--    hSetBinaryMode h True
+    (`evalStateT` bs) $ do
+      parseMagic
+      writeMagic h "fLaC"
+      metadata <- scanFlacMetadata
+      writeFlacMetadata h metadata
+      rest <- get 
+      liftIO $ C.hPut h rest
+   )
+  return ()

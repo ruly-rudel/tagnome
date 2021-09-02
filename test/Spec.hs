@@ -64,3 +64,4 @@ main = do
           e <- getFlacMetadataFromFile $ FilePathEx "./tv/01" "/notexist.flac"
           assertEqual "01_03 flac matadata retrival." []  e)
       ]
+    copyFlac "./tv/01/tone1.flac" "./tmp/tone1copy.flac"
