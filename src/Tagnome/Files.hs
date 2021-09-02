@@ -15,6 +15,7 @@ module Tagnome.Files
 
 import Control.Monad.Catch
 import Control.Monad.State
+import Control.Monad.Reader
 import Data.List
 import Data.String.Conversions
 import Data.Typeable
@@ -169,15 +170,28 @@ scanFlacMetadata = do
     return $ MetaDataFlagment block_type block_length block_body : m
 
 
-writeFlacMetadata :: (MonadIO m, MonadThrow m) => Handle -> [MetaDataFlagment] -> m ()
-writeFlacMetadata h md = do
-  forM_ md $ \(MetaDataFlagment bt blen body) -> do
-    liftIO $ B.hPut h $ B.pack $ numByteBE bt 1
-    liftIO $ B.hPut h $ B.pack $ numByteBE blen 3
-    liftIO $ B.hPut h body
+putNumByteBE :: (MonadIO m, MonadReader Handle m, MonadThrow m) => Int -> Int -> m()
+putNumByteBE len n = do
+  putBS $ B.pack $ numByteBE n len
 
-writeMagic :: (MonadIO m, MonadThrow m) => Handle -> [Char] -> m ()
-writeMagic h magic = do
+putBS :: (MonadIO m, MonadReader Handle m, MonadThrow m) => C.ByteString -> m ()
+putBS bs = do
+  h <- ask 
+  liftIO $ B.hPut h bs
+
+
+
+writeFlacMetadata :: (MonadIO m, MonadReader Handle m, MonadThrow m) => [MetaDataFlagment] -> m ()
+writeFlacMetadata md = do
+  h <- ask
+  forM_ md $ \(MetaDataFlagment bt blen body) -> do
+    putNumByteBE 1 bt
+    putNumByteBE 3 blen
+    putBS body
+
+writeMagic :: (MonadIO m, MonadReader Handle m, MonadThrow m) => [Char] -> m ()
+writeMagic magic = do
+  h <- ask
   liftIO $ C.hPut h $ C.pack magic
 
 copyFlac :: MonadIO m => FilePath -> FilePath -> m ()
@@ -185,12 +199,12 @@ copyFlac src dst = do
   bs <- liftIO $ mmapFileByteString src Nothing
   liftIO $ withBinaryFile dst WriteMode (\h -> do
 --    hSetBinaryMode h True
-    (`evalStateT` bs) $ do
+    (`runReaderT` h) $ (`evalStateT` bs) $ do
       parseMagic
-      writeMagic h "fLaC"
+      writeMagic "fLaC"
       metadata <- scanFlacMetadata
-      writeFlacMetadata h metadata
-      rest <- get 
-      liftIO $ C.hPut h rest
+      writeFlacMetadata metadata
+      rest <- get
+      putBS rest 
    )
   return ()
